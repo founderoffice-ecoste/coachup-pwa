@@ -323,8 +323,11 @@ function RecordScreen({ type, rep, onBack, onResult }) {
         body: JSON.stringify({ rep_id: rep.id, rep_name: rep.name, client_name: clientName, session_type: type, transcript: src }),
       });
       const data = await res.json();
-      if (data.success) onResult({ ...data, client_name: clientName, session_type: type, transcript: src });
-      else setError("Analysis failed. Please try again.");
+      if (data.success || data.overall_score !== undefined || data.transcript !== undefined) {
+        onResult({ ...data, client_name: clientName, session_type: type, transcript: src });
+      } else {
+        setError("Analysis failed. Please try again.");
+      }
     } catch {
       setError("Connection failed. Check internet and try again.");
     }
