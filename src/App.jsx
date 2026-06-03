@@ -203,8 +203,9 @@ function LoginScreen({ onLogin }) {
 
 // ─── HOME SCREEN ──────────────────────────────────────────────────────────────
 function HomeScreen({ rep, onNav, sessions }) {
-  const avgScore = sessions.length
-    ? Math.round(sessions.reduce((a, b) => a + (b.overall_score || 0), 0) / sessions.length)
+  const scoredSessions = sessions.filter(s => s.overall_score && s.overall_score > 0);
+  const avgScore = scoredSessions.length
+    ? Math.round(scoredSessions.reduce((a, b) => a + b.overall_score, 0) / scoredSessions.length)
     : null;
   const lastSession = sessions[0];
   const thisMonth = sessions.filter(s => {
@@ -528,8 +529,8 @@ function ResultScreen({ result, onBack, onHome }) {
 
 // ─── HISTORY SCREEN ───────────────────────────────────────────────────────────
 function HistoryScreen({ onBack, sessions }) {
-  const avg = sessions.length
-    ? Math.round(sessions.reduce((a, b) => a + (b.overall_score || 0), 0) / sessions.length)
+  const avg = sessions.filter(s => s.overall_score > 0).length
+    ? Math.round(sessions.filter(s => s.overall_score > 0).reduce((a, b) => a + b.overall_score, 0) / sessions.filter(s => s.overall_score > 0).length)
     : 0;
 
   return (
@@ -601,8 +602,8 @@ function ProfileScreen({ rep, onBack, onLogout, sessions }) {
     const now = new Date();
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const avg = thisMonth.length
-    ? Math.round(thisMonth.reduce((a, b) => a + (b.overall_score || 0), 0) / thisMonth.length)
+  const avg = thisMonth.filter(s => s.overall_score > 0).length
+    ? Math.round(thisMonth.filter(s => s.overall_score > 0).reduce((a, b) => a + b.overall_score, 0) / thisMonth.filter(s => s.overall_score > 0).length)
     : 0;
 
   return (
