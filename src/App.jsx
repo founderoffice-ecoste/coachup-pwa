@@ -325,20 +325,28 @@ function RecordScreen({ type, rep, onBack, onResult }) {
 
     try {
       if (mode === "record") {
-        // Send audio file to n8n
-        setProcessingStep("Uploading audio...");
-        const formData = new FormData();
-        formData.append("mode", "audio");
-        formData.append("data", audioBlob, `${rep.name}_${clientName}_${Date.now()}.webm`);
-        formData.append("rep_id", rep.id);
-        formData.append("rep_name", rep.name);
-        formData.append("client_name", clientName);
-        formData.append("session_type", type);
+        // Convert audio blob to base64
+        setProcessingStep("Preparing audio...");
+        const base64Audio = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(audioBlob);
+        });
 
-        setProcessingStep("Transcribing audio...");
+        setProcessingStep("Uploading audio...");
         const res = await fetch(CONFIG.n8n_webhook, {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rep_id: rep.id,
+            rep_name: rep.name,
+            client_name: clientName,
+            session_type: type,
+            mode: "audio",
+            audio_base64: base64Audio,
+            audio_filename: `${rep.name}_${clientName}_${Date.now()}.webm`
+          }),
         });
         const data = await res.json();
         if (data.overall_score !== undefined || data.transcript !== undefined) {
