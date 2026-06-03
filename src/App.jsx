@@ -272,66 +272,105 @@ function RecordScreen({ type, rep, onBack, onResult }) {
   const [clientName, setClientName] = useState("");
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const [liveText, setLiveText] = useState("");
-  const [transcript, setTranscript] = useState("");
+  const [audioBlob, setAudioBlob] = useState(null);
   const [manualText, setManualText] = useState("");
   const [mode, setMode] = useState("record");
   const [processing, setProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState("");
   const [error, setError] = useState("");
-  const srRef = useRef(null);
+  const mrRef = useRef(null);
+  const chunksRef = useRef([]);
   const timerRef = useRef(null);
   const isCall = type === "call";
 
   const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
-  const startRecording = () => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { setMode("manual"); return; }
-    const sr = new SR();
-    sr.continuous = true;
-    sr.interimResults = true;
-    sr.lang = "en-IN";
-    let final = "";
-    sr.onresult = e => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) final += e.results[i][0].transcript + " ";
-        else interim = e.results[i][0].transcript;
-      }
-      setLiveText(final + interim);
-    };
-    sr.onend = () => { setTranscript(final.trim()); setRecording(false); clearInterval(timerRef.current); };
-    srRef.current = sr;
-    sr.start();
-    setRecording(true);
-    setSeconds(0);
-    timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        setRecording(false);
+        clearInterval(timerRef.current);
+      };
+      mr.start(1000);
+      mrRef.current = mr;
+      setRecording(true);
+      setAudioBlob(null);
+      setSeconds(0);
+      timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
+    } catch {
+      setError("Microphone not available. Please use Type mode.");
+      setMode("manual");
+    }
   };
 
-  const stopRecording = () => { srRef.current?.stop(); clearInterval(timerRef.current); };
+  const stopRecording = () => {
+    mrRef.current?.stop();
+    clearInterval(timerRef.current);
+  };
 
   const analyze = async () => {
-    const src = mode === "manual" ? manualText : transcript;
-    if (!src.trim()) { setError("No transcript to analyze"); return; }
     if (!clientName.trim()) { setError("Please enter client name"); return; }
+    if (mode === "record" && !audioBlob) { setError("No recording found. Please record first."); return; }
+    if (mode === "manual" && !manualText.trim()) { setError("Please enter transcript"); return; }
+
     setProcessing(true);
     setError("");
+
     try {
-      const res = await fetch(CONFIG.n8n_webhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rep_id: rep.id, rep_name: rep.name, client_name: clientName, session_type: type, transcript: src }),
-      });
-      const data = await res.json();
-      if (data.success || data.overall_score !== undefined || data.transcript !== undefined) {
-        onResult({ ...data, client_name: clientName, session_type: type, transcript: src });
+      if (mode === "record") {
+        // Send audio file to n8n
+        setProcessingStep("Uploading audio...");
+        const formData = new FormData();
+        formData.append("data", audioBlob, `${rep.name}_${clientName}_${Date.now()}.webm`);
+        formData.append("rep_id", rep.id);
+        formData.append("rep_name", rep.name);
+        formData.append("client_name", clientName);
+        formData.append("session_type", type);
+
+        setProcessingStep("Transcribing audio...");
+        const res = await fetch(CONFIG.n8n_webhook, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.overall_score !== undefined || data.transcript !== undefined) {
+          onResult({ ...data, client_name: clientName, session_type: type });
+        } else {
+          setError("Analysis failed. Please try again.");
+        }
       } else {
-        setError("Analysis failed. Please try again.");
+        // Text mode - send JSON
+        setProcessingStep("Analyzing transcript...");
+        const res = await fetch(CONFIG.n8n_webhook, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rep_id: rep.id,
+            rep_name: rep.name,
+            client_name: clientName,
+            session_type: type,
+            transcript: manualText.trim()
+          }),
+        });
+        const data = await res.json();
+        if (data.overall_score !== undefined || data.transcript !== undefined) {
+          onResult({ ...data, client_name: clientName, session_type: type, transcript: manualText.trim() });
+        } else {
+          setError("Analysis failed. Please try again.");
+        }
       }
     } catch {
       setError("Connection failed. Check internet and try again.");
     }
     setProcessing(false);
+    setProcessingStep("");
   };
 
   return (
@@ -368,9 +407,15 @@ function RecordScreen({ type, rep, onBack, onResult }) {
 
       {mode === "record" ? (
         <div style={{ textAlign: "center" }}>
-          {(recording || liveText) && (
-            <div style={{ background: T.bg2, border: `1px solid ${recording ? T.error : T.border}33`, borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 12, color: T.textSub, lineHeight: 1.6, maxHeight: 120, overflowY: "auto", textAlign: "left" }}>
-              {liveText || "🔴 Listening..."}
+          {/* Recording indicator */}
+          {recording && (
+            <div style={{ background: T.bg2, border: `1px solid ${T.error}33`, borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 13, color: T.error, fontWeight: 700 }}>
+              🔴 Recording in progress — speak clearly
+            </div>
+          )}
+          {audioBlob && !recording && (
+            <div style={{ background: "#f0fdf4", border: `1px solid ${T.success}33`, borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 13, color: T.success, fontWeight: 700 }}>
+              ✅ Recording captured — {fmt(seconds)} recorded
             </div>
           )}
           <button
@@ -379,8 +424,13 @@ function RecordScreen({ type, rep, onBack, onResult }) {
             {recording ? "⏹" : "🎙"}
           </button>
           <div style={{ marginTop: 10, fontSize: 13, color: T.textSub }}>
-            {recording ? `Recording... ${fmt(seconds)}` : transcript ? "✅ Recording captured" : "Tap to start recording"}
+            {recording ? `Recording... ${fmt(seconds)}` : audioBlob ? "Tap to re-record" : "Tap to start recording"}
           </div>
+          {audioBlob && (
+            <button onClick={() => { setAudioBlob(null); setSeconds(0); }} style={{ marginTop: 8, background: "none", border: "none", color: T.error, cursor: "pointer", fontSize: 12 }}>
+              🗑 Clear & Re-record
+            </button>
+          )}
         </div>
       ) : (
         <textarea
@@ -391,17 +441,7 @@ function RecordScreen({ type, rep, onBack, onResult }) {
         />
       )}
 
-      {transcript && mode === "record" && (
-        <Card style={{ marginTop: 14, borderLeft: `3px solid ${T.success}` }}>
-          <div style={{ fontSize: 11, color: T.success, fontWeight: 700, marginBottom: 6 }}>✅ TRANSCRIPT READY</div>
-          <div style={{ fontSize: 12, color: T.textSub, lineHeight: 1.6, maxHeight: 80, overflowY: "auto" }}>
-            {transcript.slice(0, 300)}{transcript.length > 300 ? "..." : ""}
-          </div>
-          <button onClick={() => { setTranscript(""); setLiveText(""); }} style={{ marginTop: 6, background: "none", border: "none", color: T.error, cursor: "pointer", fontSize: 12 }}>
-            🗑 Clear & Re-record
-          </button>
-        </Card>
-      )}
+      
 
       {error && (
         <div style={{ marginTop: 12, background: "#fef2f2", border: `1px solid ${T.error}33`, borderRadius: 10, padding: "10px 14px", fontSize: 13, color: T.error }}>
@@ -409,14 +449,14 @@ function RecordScreen({ type, rep, onBack, onResult }) {
         </div>
       )}
 
-      {(transcript || manualText) && (
+      {(audioBlob || manualText) && !recording && (
         <div style={{ marginTop: 16 }}>
           <OrangeBtn onClick={analyze} disabled={processing}>
-            {processing ? "🤖 AI Analyzing... Please wait" : "🔍 Analyze & Score"}
+            {processing ? `🤖 ${processingStep || "Processing..."}` : "🔍 Analyze & Score"}
           </OrangeBtn>
           {processing && (
             <div style={{ marginTop: 8, textAlign: "center", fontSize: 12, color: T.textLight }}>
-              Uploading → Transcribing → Scoring... ~60 seconds
+              {mode === "record" ? "Audio uploading → Transcribing → Scoring... ~90 seconds" : "Analyzing transcript... ~30 seconds"}
             </div>
           )}
         </div>
