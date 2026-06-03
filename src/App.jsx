@@ -328,6 +328,7 @@ function RecordScreen({ type, rep, onBack, onResult }) {
         // Send audio file to n8n
         setProcessingStep("Uploading audio...");
         const formData = new FormData();
+        formData.append("mode", "audio");
         formData.append("data", audioBlob, `${rep.name}_${clientName}_${Date.now()}.webm`);
         formData.append("rep_id", rep.id);
         formData.append("rep_name", rep.name);
@@ -356,7 +357,8 @@ function RecordScreen({ type, rep, onBack, onResult }) {
             rep_name: rep.name,
             client_name: clientName,
             session_type: type,
-            transcript: manualText.trim()
+            transcript: manualText.trim(),
+            mode: "text"
           }),
         });
         const data = await res.json();
