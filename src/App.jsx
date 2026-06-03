@@ -239,10 +239,9 @@ function HomeScreen({ rep, onNav, sessions }) {
       {/* Action Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
         {[
-          { screen: "call", icon: "📞", title: "Appointment\nCall", sub: "Book a site visit", accent: T.orange },
-          { screen: "visit", icon: "🏗️", title: "Site\nPresentation", sub: "Product demo", accent: T.blue },
-          { screen: S.HISTORY, icon: "📊", title: "My Sessions", sub: `${sessions.length} recorded`, accent: T.success },
-          { screen: S.PROFILE, icon: "👤", title: "My Profile", sub: rep.name.split(" ")[0], accent: T.textSub },
+          { screen: "visit", icon: "🏗️", title: "Site\nPresentation", sub: "Record & score your pitch", accent: T.orange },
+          { screen: S.HISTORY, icon: "📊", title: "My Sessions", sub: `${sessions.length} recorded`, accent: T.blue },
+          { screen: S.PROFILE, icon: "👤", title: "My Profile", sub: rep.name.split(" ")[0], accent: T.success },
         ].map(c => (
           <button key={c.screen} onClick={() => onNav(c.screen)} style={{
             background: T.bg, border: `1.5px solid ${c.accent}33`,
