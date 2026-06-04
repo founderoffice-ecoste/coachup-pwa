@@ -539,6 +539,54 @@ function ResultScreen({ result, onBack, onHome }) {
         </div>
       ))}
 
+      {/* Score Breakdown */}
+      {result.scores && (() => {
+        try {
+          const scores = typeof result.scores === 'string' ? JSON.parse(result.scores) : result.scores;
+          const entries = Object.entries(scores);
+          if (entries.length === 0) return null;
+          return (
+            <Card style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginBottom: 12 }}>📊 DETAILED BREAKDOWN</div>
+              {entries.map(([criterion, data]) => {
+                const s = data.score || 0;
+                const color = s >= 8 ? T.success : s >= 5 ? T.warning : T.error;
+                return (
+                  <div key={criterion} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, color: T.text, fontWeight: 600 }}>{criterion}</span>
+                      <span style={{ fontSize: 14, fontWeight: 900, color }}>{s}/10</span>
+                    </div>
+                    <div style={{ height: 6, background: T.bg2, borderRadius: 3, marginBottom: 4 }}>
+                      <div style={{ height: '100%', width: `${s * 10}%`, background: color, borderRadius: 3, transition: 'width 0.8s ease' }} />
+                    </div>
+                    {data.remark && <div style={{ fontSize: 11, color: T.textSub, fontStyle: 'italic' }}>{data.remark}</div>}
+                  </div>
+                );
+              })}
+            </Card>
+          );
+        } catch(e) { return null; }
+      })()}
+
+      {/* Audio Analytics */}
+      {(result.speech_pace || result.talk_ratio || result.sentiment_score) && (
+        <Card style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginBottom: 12 }}>🎙️ AUDIO ANALYTICS</div>
+          {[
+            { label: 'Speech Pace', value: result.speech_pace, icon: '⚡' },
+            { label: 'Talk Ratio', value: result.talk_ratio, icon: '🗣️' },
+            { label: 'Filler Words', value: result.filler_words, icon: '💬' },
+            { label: 'Sentiment', value: result.sentiment_score, icon: '😊' },
+          ].map(item => item.value && item.value !== 'N/A' && (
+            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 8, marginBottom: 8, borderBottom: `1px solid ${T.border}` }}>
+              <span style={{ fontSize: 12, color: T.textSub }}>{item.icon} {item.label}</span>
+              <span style={{ fontSize: 12, color: T.text, fontWeight: 600, textAlign: 'right', maxWidth: '60%' }}>{item.value}</span>
+            </div>
+          ))}
+        </Card>
+      )}
+
       {/* NDFF */}
       {result.ndff && (
         <Card>
