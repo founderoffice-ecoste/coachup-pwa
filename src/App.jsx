@@ -278,10 +278,26 @@ function RecordScreen({ type, rep, onBack, onResult }) {
   const [processing, setProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState("");
   const [error, setError] = useState("");
+  const [geoData, setGeoData] = useState({ latitude: null, longitude: null });
   const mrRef = useRef(null);
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
   const isCall = type === "call";
+
+  // Silent location capture on screen load
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGeoData({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          });
+        },
+        () => {} // Silently fail if denied
+      );
+    }
+  }, []);
 
   const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
@@ -345,7 +361,9 @@ function RecordScreen({ type, rep, onBack, onResult }) {
             session_type: type,
             mode: "audio",
             audio_base64: base64Audio,
-            audio_filename: `${rep.name}_${clientName}_${Date.now()}.webm`
+            audio_filename: `${rep.name}_${clientName}_${Date.now()}.webm`,
+            latitude: geoData.latitude,
+            longitude: geoData.longitude
           }),
         });
         const data = await res.json();
@@ -366,7 +384,9 @@ function RecordScreen({ type, rep, onBack, onResult }) {
             client_name: clientName,
             session_type: type,
             transcript: manualText.trim(),
-            mode: "text"
+            mode: "text",
+            latitude: geoData.latitude,
+            longitude: geoData.longitude
           }),
         });
         const data = await res.json();
