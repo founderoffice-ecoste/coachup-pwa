@@ -762,13 +762,138 @@ function ProfileScreen({ rep, onBack, onLogout, sessions }) {
   );
 }
 
-// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+// ─── CHAT CONFIG ─────────────────────────────────────────────────────────────
+const CHAT_WEBHOOK = "https://foundersoffice.app.n8n.cloud/webhook/chat";
+
+// ─── CHAT INTERFACE ───────────────────────────────────────────────────────────
+function ChatInterface({ rep, onClose }) {
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: `Hi ${rep.name.split(' ')[0]}! 👋 I'm Ask CoachUp, your AI sales coach. Ask me anything about products, objections, presentations, or your performance.` }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const send = async () => {
+    if (!input.trim() || loading) return;
+    const question = input.trim();
+    setInput('');
+    const newMessages = [...messages, { role: 'user', content: question }];
+    setMessages(newMessages);
+    setLoading(true);
+
+    try {
+      const history = newMessages.slice(1).slice(-10);
+      const res = await fetch(CHAT_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question,
+          rep_id: rep.id,
+          rep_name: rep.name,
+          history: history.slice(0, -1)
+        })
+      });
+      const data = await res.json();
+      const answer = data.answer || 'Sorry, I could not process that. Please try again.';
+      setMessages(prev => [...prev, { role: 'assistant', content: answer }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection failed. Please check your internet and try again.' }]);
+    }
+    setLoading(false);
+  };
+
+  const suggestions = [
+    "How do I handle price objection?",
+    "What are our product USPs?",
+    "Tips for better needs assessment?",
+    "How to close a hesitant client?"
+  ];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+      <div style={{ background: T.bg, borderRadius: '20px 20px 0 0', maxHeight: '85vh', display: 'flex', flexDirection: 'column', maxWidth: 480, width: '100%', margin: '0 auto' }}>
+        
+        {/* Header */}
+        <div style={{ background: `linear-gradient(135deg, ${T.orange}, ${T.orangeDark})`, padding: '16px 20px', borderRadius: '20px 20px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🤖</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Ask CoachUp</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>AI Sales Coach</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: '#fff', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+        </div>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0 }}>
+          {messages.map((m, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+              <div style={{
+                maxWidth: '80%',
+                padding: '10px 14px',
+                borderRadius: m.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                background: m.role === 'user' ? `linear-gradient(135deg, ${T.orange}, ${T.orangeDark})` : T.bg2,
+                color: m.role === 'user' ? '#fff' : T.text,
+                fontSize: 13,
+                lineHeight: 1.6,
+                whiteSpace: 'pre-wrap'
+              }}>
+                {m.content}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <div style={{ background: T.bg2, padding: '10px 14px', borderRadius: '18px 18px 18px 4px', fontSize: 13, color: T.textSub }}>
+                Thinking...
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Suggestions */}
+        {messages.length === 1 && (
+          <div style={{ padding: '0 16px 8px', display: 'flex', gap: 8, overflowX: 'auto' }}>
+            {suggestions.map((s, i) => (
+              <button key={i} onClick={() => setInput(s)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 20, border: `1px solid ${T.orange}44`, background: T.orangeLight, color: T.orange, fontSize: 11, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input */}
+        <div style={{ padding: '12px 16px', borderTop: `1px solid ${T.border}`, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder="Ask anything about sales, products, objections..."
+            rows={1}
+            style={{ flex: 1, padding: '10px 14px', borderRadius: 20, border: `1.5px solid ${T.border}`, background: T.bg2, color: T.text, fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5 }}
+          />
+          <button onClick={send} disabled={!input.trim() || loading} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', cursor: input.trim() && !loading ? 'pointer' : 'not-allowed', background: input.trim() && !loading ? `linear-gradient(135deg, ${T.orange}, ${T.orangeDark})` : T.bg2, color: input.trim() && !loading ? '#fff' : T.textLight, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            ➤
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 export default function App() {
   const [screen, setScreen] = useState(S.LOGIN);
   const [rep, setRep] = useState(null);
   const [sessionType, setSessionType] = useState(null);
   const [result, setResult] = useState(null);
   const [sessions, setSessions] = useState([]);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const loadSessions = async (rep_id) => {
     const data = await getSessions(rep_id);
@@ -828,6 +953,37 @@ export default function App() {
         {screen === S.HISTORY && <HistoryScreen onBack={() => setScreen(S.HOME)} sessions={sessions} />}
         {screen === S.PROFILE && rep && <ProfileScreen rep={rep} onBack={() => setScreen(S.HOME)} onLogout={handleLogout} sessions={sessions} />}
       </div>
+
+      {/* Floating Chat Button */}
+      {rep && screen !== S.LOGIN && (
+        <button
+          onClick={() => setChatOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            background: `linear-gradient(135deg, ${T.orange}, ${T.orangeDark})`,
+            color: '#fff',
+            fontSize: 24,
+            boxShadow: `0 4px 16px ${T.orange}66`,
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+          🤖
+        </button>
+      )}
+
+      {/* Chat Interface */}
+      {chatOpen && rep && (
+        <ChatInterface rep={rep} onClose={() => setChatOpen(false)} />
+      )}
 
       <style>{`
         * { box-sizing: border-box; }
