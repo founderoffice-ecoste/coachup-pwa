@@ -279,23 +279,20 @@ function RecordScreen({ type, rep, onBack, onResult }) {
   const [processingStep, setProcessingStep] = useState("");
   const [error, setError] = useState("");
   const [geoData, setGeoData] = useState({ latitude: null, longitude: null });
-  const mrRef = useRef(null);
-  const chunksRef = useRef([]);
-  const timerRef = useRef(null);
-  const isCall = type === "call";
+  const [geoLoading, setGeoLoading] = useState(true);
 
-  // Silent location capture on screen load
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setGeoData({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude
-          });
+          setGeoData({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+          setGeoLoading(false);
         },
-        () => {} // Silently fail if denied
+        () => { setGeoLoading(false); },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
+    } else {
+      setGeoLoading(false);
     }
   }, []);
 
