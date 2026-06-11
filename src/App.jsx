@@ -34,6 +34,8 @@ const T = {
   warning: "#f59e0b",
   error: "#ef4444",
   blue: "#037dd6",
+  purple: "#7c3aed",
+  purpleLight: "#f5f3ff",
 };
 
 async function sbFetch(path, method = "GET", body = null) {
@@ -72,6 +74,20 @@ function gradeLabel(s) {
   if (s >= 65) return "Good 👍";
   if (s >= 45) return "Average ⚠️";
   return "Needs Work 🔴";
+}
+
+function phaseColor(label) {
+  if (label === "Strong") return T.success;
+  if (label === "Moderate") return T.warning;
+  if (label === "Weak") return T.error;
+  return T.textLight;
+}
+
+function phaseEmoji(label) {
+  if (label === "Strong") return "✅";
+  if (label === "Moderate") return "⚠️";
+  if (label === "Weak") return "🔴";
+  return "⬜";
 }
 
 function ScoreRing({ score, size = 80 }) {
@@ -116,10 +132,174 @@ function OrangeBtn({ children, onClick, disabled, style = {} }) {
   );
 }
 
+// ─── 4-PHASE REPORT ───────────────────────────────────────────────────────────
+function FourPhaseReport({ fourPhase }) {
+  const [expanded, setExpanded] = useState(null);
+
+  if (!fourPhase) return null;
+
+  const phases = [
+    {
+      key: "phase1",
+      number: "01",
+      name: "Opening",
+      subtitle: "Authority & Grand Opening",
+      icon: "🎯",
+      data: fourPhase.phase1,
+    },
+    {
+      key: "phase2",
+      number: "02",
+      name: "Transformational Content",
+      subtitle: "Education & Value",
+      icon: "📚",
+      data: fourPhase.phase2,
+    },
+    {
+      key: "phase3",
+      number: "03",
+      name: "Bridge",
+      subtitle: "Two Choices Moment",
+      icon: "🌉",
+      data: fourPhase.phase3,
+    },
+    {
+      key: "phase4",
+      number: "04",
+      name: "Closing",
+      subtitle: "Irresistible Offer",
+      icon: "🤝",
+      data: fourPhase.phase4,
+    },
+  ];
+
+  const overallScore = Math.round((fourPhase.four_phase_overall || 0) * 10);
+
+  return (
+    <Card style={{ marginBottom: 12 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 11, color: T.purple, fontWeight: 700, marginBottom: 2 }}>🎓 4-PHASE PRESENTATION SCORECARD</div>
+          <div style={{ fontSize: 11, color: T.textLight }}>OTBC Framework Assessment</div>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 900, color: gradeColor(overallScore) }}>{overallScore}</div>
+          <div style={{ fontSize: 9, color: T.textLight }}>/100</div>
+        </div>
+      </div>
+
+      {/* Summary */}
+      {fourPhase.four_phase_summary && (
+        <div style={{ background: T.purpleLight, border: `1px solid ${T.purple}22`, borderRadius: 10, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: T.text, lineHeight: 1.6 }}>
+          {fourPhase.four_phase_summary}
+        </div>
+      )}
+
+      {/* Phase cards */}
+      {phases.map((phase) => {
+        const d = phase.data;
+        if (!d) return null;
+        const color = phaseColor(d.label);
+        const isOpen = expanded === phase.key;
+        const phaseScore = Math.round((d.score || 0) * 10);
+
+        return (
+          <div key={phase.key} style={{ marginBottom: 8 }}>
+            {/* Phase header — tappable */}
+            <button
+              onClick={() => setExpanded(isOpen ? null : phase.key)}
+              style={{
+                width: "100%", background: isOpen ? `${color}11` : T.bg2,
+                border: `1.5px solid ${color}44`, borderRadius: 12, padding: "12px 14px",
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{phase.icon}</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ fontSize: 11, color: T.textLight, fontWeight: 600 }}>PHASE {phase.number}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>{phase.name}</div>
+                <div style={{ fontSize: 10, color: T.textSub }}>{phase.subtitle}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color, background: `${color}22`, padding: "3px 8px", borderRadius: 99, marginBottom: 2 }}>
+                  {phaseEmoji(d.label)} {d.label}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 900, color }}>{phaseScore}/100</div>
+              </div>
+              <span style={{ fontSize: 12, color: T.textLight, marginLeft: 4 }}>{isOpen ? "▲" : "▼"}</span>
+            </button>
+
+            {/* Expanded detail */}
+            {isOpen && (
+              <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: "0 0 12px 12px", padding: "12px 14px", marginTop: -4, borderTop: "none" }}>
+
+                {/* Score bar */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ height: 6, background: T.bg2, borderRadius: 3 }}>
+                    <div style={{ height: "100%", width: `${phaseScore}%`, background: color, borderRadius: 3, transition: "width 0.5s" }} />
+                  </div>
+                </div>
+
+                {/* Pillar coverage for Phase 2 */}
+                {phase.key === "phase2" && d.pillars_covered && (
+                  <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                    {[
+                      { key: "pillar1_material_comparison", label: "7 Sutras" },
+                      { key: "pillar2_execution_secrets", label: "4 Secrets" },
+                      { key: "pillar3_metamask_reasons", label: "9 Reasons" },
+                    ].map(p => (
+                      <span key={p.key} style={{
+                        fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 99,
+                        background: d.pillars_covered[p.key] ? "#f0fdf4" : "#fef2f2",
+                        color: d.pillars_covered[p.key] ? T.success : T.error,
+                        border: `1px solid ${d.pillars_covered[p.key] ? T.success : T.error}33`,
+                      }}>
+                        {d.pillars_covered[p.key] ? "✓" : "✗"} {p.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Done well */}
+                {d.done_well?.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: T.success, fontWeight: 700, marginBottom: 4 }}>✅ DONE WELL</div>
+                    {d.done_well.map((item, i) => (
+                      <div key={i} style={{ fontSize: 12, color: T.text, lineHeight: 1.5, paddingLeft: 8, marginBottom: 2 }}>• {item}</div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Missed */}
+                {d.missed?.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: T.error, fontWeight: 700, marginBottom: 4 }}>❌ MISSED / IMPROVE</div>
+                    {d.missed.map((item, i) => (
+                      <div key={i} style={{ fontSize: 12, color: T.text, lineHeight: 1.5, paddingLeft: 8, marginBottom: 2 }}>• {item}</div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Coach insight */}
+                {d.insight && (
+                  <div style={{ background: T.purpleLight, borderLeft: `3px solid ${T.purple}`, borderRadius: "0 8px 8px 0", padding: "8px 10px", fontSize: 12, color: T.text, lineHeight: 1.5, fontStyle: "italic" }}>
+                    💡 {d.insight}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </Card>
+  );
+}
+
 // ─── CHAT INTERFACE ───────────────────────────────────────────────────────────
 function ChatInterface({ rep, onClose }) {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: `Hi ${rep.name.split(' ')[0]}! 👋 I'm Ask CoachUp, your AI sales coach. Ask me anything about products, objections, presentations, or your performance.` }
+    { role: 'assistant', content: `Hi ${rep.name.split(' ')[0]}! 👋 I'm Ask CoachUp, your AI sales coach. Ask me anything about the 4-phase presentation, products, objections, or your performance.` }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -152,7 +332,7 @@ function ChatInterface({ rep, onClose }) {
     setLoading(false);
   };
 
-  const suggestions = ["How do I handle price objection?", "What are our product USPs?", "Tips for needs assessment?", "How to close a hesitant client?"];
+  const suggestions = ["How do I handle price objection?", "What are the 4 phases?", "Tips for Phase 2 content?", "How to close a hesitant client?"];
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
@@ -354,7 +534,7 @@ function RecordScreen({ type, rep, onBack, onResult }) {
           reader.onerror = reject;
           reader.readAsDataURL(audioBlob);
         });
-        setProcessingStep("Uploading audio...");
+        setProcessingStep("Uploading & transcribing...");
         const res = await fetch(CONFIG.n8n_webhook, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -415,7 +595,7 @@ function RecordScreen({ type, rep, onBack, onResult }) {
           <OrangeBtn onClick={analyze} disabled={processing}>
             {processing ? `🤖 ${processingStep || "Processing..."}` : "🔍 Analyze & Score"}
           </OrangeBtn>
-          {processing && <div style={{ marginTop: 8, textAlign: "center", fontSize: 12, color: T.textLight }}>{mode === "record" ? "Audio uploading → Transcribing → Scoring... ~90 seconds" : "Analyzing... ~30 seconds"}</div>}
+          {processing && <div style={{ marginTop: 8, textAlign: "center", fontSize: 12, color: T.textLight }}>{mode === "record" ? "Audio uploading → Transcribing → Scoring... ~90 seconds" : "Analyzing with 4-phase scoring... ~30 seconds"}</div>}
         </div>
       )}
     </div>
@@ -431,6 +611,10 @@ function ResultScreen({ result, onBack, onHome }) {
   const copyMOM = () => {
     if (result.mom_text) { navigator.clipboard.writeText(result.mom_text); setCopied(true); setTimeout(() => setCopied(false), 3000); }
   };
+
+  const fourPhase = result.four_phase
+    ? (typeof result.four_phase === "string" ? JSON.parse(result.four_phase) : result.four_phase)
+    : null;
 
   return (
     <div>
@@ -452,11 +636,14 @@ function ResultScreen({ result, onBack, onHome }) {
         { icon: "🎯", label: "Key Improvement", value: result.improvement, color: T.warning, bg: "#fffbeb" },
         { icon: "🧠", label: "Coach Tip", value: result.coach_tip, color: T.orange, bg: T.orangeLight },
       ].map(item => item.value && (
-        <div key={item.label} style={{ background: item.bg, borderLeft: `4px solid ${item.color}`, borderRadius: "0 12px 12px 0", padding: "12px 14px", marginBottom: 10, border: `1px solid ${item.color}22`, borderLeft: `4px solid ${item.color}` }}>
+        <div key={item.label} style={{ background: item.bg, borderRadius: "0 12px 12px 0", padding: "12px 14px", marginBottom: 10, border: `1px solid ${item.color}22`, borderLeft: `4px solid ${item.color}` }}>
           <div style={{ fontSize: 11, color: item.color, fontWeight: 700, marginBottom: 4 }}>{item.icon} {item.label.toUpperCase()}</div>
           <div style={{ fontSize: 13, color: T.text, lineHeight: 1.5 }}>{item.value}</div>
         </div>
       ))}
+
+      {/* ── 4-PHASE REPORT ── */}
+      <FourPhaseReport fourPhase={fourPhase} />
 
       {/* Score Breakdown */}
       {result.scores && (() => {
@@ -469,17 +656,17 @@ function ResultScreen({ result, onBack, onHome }) {
               <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginBottom: 12 }}>📊 DETAILED BREAKDOWN</div>
               {entries.map(([criterion, data]) => {
                 const s = typeof data === 'object' ? (data.score || 0) : (data || 0);
-                const c = s >= 8 ? T.success : s >= 5 ? T.warning : T.error;
+                const scaledScore = s <= 10 ? s * 10 : s;
+                const c = scaledScore >= 80 ? T.success : scaledScore >= 50 ? T.warning : T.error;
                 return (
                   <div key={criterion} style={{ marginBottom: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, color: T.text, fontWeight: 600 }}>{criterion.replace(/_/g, ' ')}</span>
+                      <span style={{ fontSize: 12, color: T.text, fontWeight: 600 }}>{criterion.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
                       <span style={{ fontSize: 14, fontWeight: 900, color: c }}>{s}/10</span>
                     </div>
-                    <div style={{ height: 6, background: T.bg2, borderRadius: 3, marginBottom: 4 }}>
-                      <div style={{ height: '100%', width: `${s * 10}%`, background: c, borderRadius: 3 }} />
+                    <div style={{ height: 6, background: T.bg2, borderRadius: 3 }}>
+                      <div style={{ height: '100%', width: `${scaledScore}%`, background: c, borderRadius: 3 }} />
                     </div>
-                    {data.remark && <div style={{ fontSize: 11, color: T.textSub, fontStyle: 'italic' }}>{data.remark}</div>}
                   </div>
                 );
               })}
@@ -662,14 +849,11 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
 
   const loadSessions = async (rep_id) => { const data = await getSessions(rep_id); setSessions(data); };
-
   const handleLogin = (repData) => { setRep(repData); loadSessions(repData.id); setScreen(S.HOME); };
-
   const handleNav = (s) => {
     if (s === "visit") { setSessionType("visit"); setScreen(S.RECORD); }
     else setScreen(s);
   };
-
   const handleResult = (data) => { setResult(data); loadSessions(rep.id); setScreen(S.RESULT); };
   const handleLogout = () => { setRep(null); setSessions([]); setScreen(S.LOGIN); };
 
@@ -693,7 +877,6 @@ export default function App() {
         {screen === S.PROFILE && rep && <ProfileScreen rep={rep} onBack={() => setScreen(S.HOME)} onLogout={handleLogout} sessions={sessions} />}
       </div>
 
-      {/* Floating Chat Button */}
       {rep && screen !== S.LOGIN && (
         <button onClick={() => setChatOpen(true)} style={{ position: 'fixed', bottom: 24, right: 24, width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer', background: `linear-gradient(135deg, ${T.orange}, ${T.orangeDark})`, color: '#fff', fontSize: 24, boxShadow: `0 4px 16px ${T.orange}66`, zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           🤖
