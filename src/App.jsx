@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 
 const CONFIG = {
-  n8n_webhook: "https://foundersoffice.app.n8n.cloud/webhook/transcribe",
+  n8n_webhook: "https://coachup-backend-production.up.railway.app/transcribe",
   supabase_url: "https://mpepqexfbyecedlvhdqb.supabase.co",
   supabase_key: "sb_publishable_BzU8hxYr0YvQTZ36to02-A_XqQqenCM",
   app_name: "CoachUp",
 };
 
-const CHAT_WEBHOOK = "https://foundersoffice.app.n8n.cloud/webhook/chat";
+const CHAT_WEBHOOK = "https://coachup-backend-production.up.railway.app/chat";
 
 const S = {
   LOGIN: "login",
@@ -358,7 +358,7 @@ function RecordScreen({ type, rep, onBack, onResult }) {
         const res = await fetch(CONFIG.n8n_webhook, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rep_id: rep.id, rep_name: rep.name, client_name: clientName, session_type: type, mode: "audio", audio_base64: base64Audio, audio_filename: `${rep.name}_${clientName}_${Date.now()}.webm`, latitude: geoData.latitude, longitude: geoData.longitude }),
+          body: JSON.stringify({ rep_id: rep.id, rep_name: rep.name, client_name: clientName, session_type: type, mode: "audio", audio: base64Audio, audio_mime: "audio/webm", latitude: geoData.latitude, longitude: geoData.longitude }),
         });
         const data = await res.json();
         if (data.overall_score !== undefined || data.transcript !== undefined) {
@@ -468,12 +468,12 @@ function ResultScreen({ result, onBack, onHome }) {
             <Card style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginBottom: 12 }}>📊 DETAILED BREAKDOWN</div>
               {entries.map(([criterion, data]) => {
-                const s = data.score || 0;
+                const s = typeof data === 'object' ? (data.score || 0) : (data || 0);
                 const c = s >= 8 ? T.success : s >= 5 ? T.warning : T.error;
                 return (
                   <div key={criterion} style={{ marginBottom: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, color: T.text, fontWeight: 600 }}>{criterion}</span>
+                      <span style={{ fontSize: 12, color: T.text, fontWeight: 600 }}>{criterion.replace(/_/g, ' ')}</span>
                       <span style={{ fontSize: 14, fontWeight: 900, color: c }}>{s}/10</span>
                     </div>
                     <div style={{ height: 6, background: T.bg2, borderRadius: 3, marginBottom: 4 }}>
@@ -493,11 +493,11 @@ function ResultScreen({ result, onBack, onHome }) {
         <Card style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginBottom: 12 }}>🎙️ AUDIO ANALYTICS</div>
           {[
-            { label: 'Speech Pace', value: result.speech_pace, icon: '⚡' },
-            { label: 'Talk Ratio', value: result.talk_ratio, icon: '🗣️' },
-            { label: 'Filler Words', value: result.filler_words, icon: '💬' },
-            { label: 'Sentiment', value: result.sentiment_score, icon: '😊' },
-          ].map(item => item.value && item.value !== 'N/A' && (
+            { label: 'Speech Pace', value: result.speech_pace ? `${result.speech_pace} wpm` : null, icon: '⚡' },
+            { label: 'Talk Ratio', value: result.talk_ratio ? `Rep ${result.talk_ratio}% / Client ${100 - result.talk_ratio}%` : null, icon: '🗣️' },
+            { label: 'Filler Words', value: result.filler_words !== null ? `${result.filler_words} detected` : null, icon: '💬' },
+            { label: 'Client Sentiment', value: result.sentiment_score?.client_positive ? `${result.sentiment_score.client_positive}% positive` : null, icon: '😊' },
+          ].map(item => item.value && (
             <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 8, marginBottom: 8, borderBottom: `1px solid ${T.border}` }}>
               <span style={{ fontSize: 12, color: T.textSub }}>{item.icon} {item.label}</span>
               <span style={{ fontSize: 12, color: T.text, fontWeight: 600, textAlign: 'right', maxWidth: '60%' }}>{item.value}</span>
@@ -510,19 +510,26 @@ function ResultScreen({ result, onBack, onHome }) {
       {result.ndff && (() => {
         try {
           const ndff = typeof result.ndff === 'string' ? JSON.parse(result.ndff) : result.ndff;
-          const tags = ["NEED", "DESIRE", "FEAR", "FRUSTRATION"];
-          const hasData = tags.some(t => ndff[t]);
+          const sections = [
+            { key: 'needs', label: 'NEEDS', color: T.success, bg: '#f0fdf4' },
+            { key: 'decision_criteria', label: 'DECISION', color: T.blue, bg: '#eff6ff' },
+            { key: 'funding', label: 'BUDGET', color: T.warning, bg: '#fffbeb' },
+            { key: 'fit', label: 'FIT', color: T.orange, bg: T.orangeLight },
+          ];
+          const hasData = sections.some(s => ndff[s.key]?.length > 0);
           if (!hasData) return null;
           return (
             <Card>
               <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginBottom: 10 }}>🎯 CLIENT SIGNALS (NDFF)</div>
-              {tags.map(tag => ndff[tag] && (
-                <div key={tag} style={{ marginBottom: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1, color: tag === "NEED" ? T.success : tag === "DESIRE" ? T.blue : tag === "FEAR" ? T.warning : T.error, background: tag === "NEED" ? "#f0fdf4" : tag === "DESIRE" ? "#eff6ff" : tag === "FEAR" ? "#fffbeb" : "#fef2f2", padding: "2px 8px", borderRadius: 99 }}>{tag}</span>
-                  <span style={{ fontSize: 12, color: T.textSub, lineHeight: 1.5 }}>{ndff[tag]}</span>
+              {sections.map(section => ndff[section.key]?.length > 0 && (
+                <div key={section.key} style={{ marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: section.color, background: section.bg, padding: "2px 8px", borderRadius: 99 }}>{section.label}</span>
+                  {ndff[section.key].map((item, i) => (
+                    <div key={i} style={{ fontSize: 12, color: T.textSub, lineHeight: 1.5, marginTop: 4, paddingLeft: 8 }}>• {item}</div>
+                  ))}
                 </div>
               ))}
-              {ndff.key_insight && <div style={{ marginTop: 8, padding: "8px 10px", background: T.bg2, borderRadius: 8, fontSize: 12, color: T.textSub, fontStyle: 'italic' }}>💡 {ndff.key_insight}</div>}
+              {ndff.summary && <div style={{ marginTop: 8, padding: "8px 10px", background: T.bg2, borderRadius: 8, fontSize: 12, color: T.textSub, fontStyle: 'italic' }}>💡 {ndff.summary}</div>}
             </Card>
           );
         } catch(e) { return null; }
@@ -537,8 +544,8 @@ function ResultScreen({ result, onBack, onHome }) {
       )}
 
       {/* Audio Link */}
-      {result.audio_link && (
-        <a href={result.audio_link} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 16px", marginBottom: 12, color: T.blue, fontSize: 13, textDecoration: "none", fontWeight: 700 }}>
+      {result.audio_drive_link && (
+        <a href={result.audio_drive_link} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 16px", marginBottom: 12, color: T.blue, fontSize: 13, textDecoration: "none", fontWeight: 700 }}>
           🎧 Listen to Recording →
         </a>
       )}
