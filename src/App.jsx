@@ -447,7 +447,7 @@ function HomeScreen({ rep, onNav, sessions }) {
         {[
           { screen: "visit", icon: "🏗️", title: "Site\nPresentation", sub: "Record & score your pitch", accent: T.orange },
           { screen: S.HISTORY, icon: "📊", title: "My Sessions", sub: `${sessions.length} recorded`, accent: T.blue },
-          { screen: S.OBJECTIONS, icon: "🛡️", title: "Objection
+          { screen: S.OBJECTIONS, icon: "🛡", title: "Objection Handler", sub: "Scripts & responses", accent: T.purple },
 Handler", sub: "Scripts & responses", accent: T.purple },
           { screen: S.PROFILE, icon: "👤", title: "My Profile", sub: rep.name.split(" ")[0], accent: T.success },
         ].map(c => (
