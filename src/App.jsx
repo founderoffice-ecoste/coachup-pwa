@@ -16,6 +16,7 @@ const S = {
   RESULT: "result",
   HISTORY: "history",
   PROFILE: "profile",
+  OBJECTIONS: "objections",
 };
 
 const T = {
@@ -446,6 +447,8 @@ function HomeScreen({ rep, onNav, sessions }) {
         {[
           { screen: "visit", icon: "🏗️", title: "Site\nPresentation", sub: "Record & score your pitch", accent: T.orange },
           { screen: S.HISTORY, icon: "📊", title: "My Sessions", sub: `${sessions.length} recorded`, accent: T.blue },
+          { screen: S.OBJECTIONS, icon: "🛡️", title: "Objection
+Handler", sub: "Scripts & responses", accent: T.purple },
           { screen: S.PROFILE, icon: "👤", title: "My Profile", sub: rep.name.split(" ")[0], accent: T.success },
         ].map(c => (
           <button key={c.screen} onClick={() => onNav(c.screen)} style={{ background: T.bg, border: `1.5px solid ${c.accent}33`, borderRadius: 16, padding: "18px 14px", cursor: "pointer", textAlign: "left", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
@@ -844,6 +847,153 @@ function ProfileScreen({ rep, onBack, onLogout, sessions }) {
   );
 }
 
+
+// ─── OBJECTION HANDLER ────────────────────────────────────────────────────────
+function ObjectionHandlerScreen({ onBack }) {
+  const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    loadKnowledgeBase();
+  }, []);
+
+  async function loadKnowledgeBase() {
+    try {
+      const data = await sbFetch("knowledge_base?select=*&order=category.asc,question.asc");
+      setEntries(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn("KB load failed:", err);
+    }
+    setLoading(false);
+  }
+
+  const categories = ["All", ...Array.from(new Set(entries.map(e => e.category).filter(Boolean)))];
+
+  const filtered = entries.filter(e => {
+    const matchCat = selectedCategory === "All" || e.category === selectedCategory;
+    const matchSearch = !search || 
+      e.question?.toLowerCase().includes(search.toLowerCase()) ||
+      e.content?.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  const categoryColor = (cat) => {
+    if (cat === "Objection Handling") return T.error;
+    if (cat === "4-Phase Framework") return T.purple;
+    if (cat === "Product Knowledge") return T.blue;
+    if (cat === "Company Credentials") return T.success;
+    return T.orange;
+  };
+
+  const categoryIcon = (cat) => {
+    if (cat === "Objection Handling") return "🛡️";
+    if (cat === "4-Phase Framework") return "🎓";
+    if (cat === "Product Knowledge") return "📦";
+    if (cat === "Company Credentials") return "🏆";
+    return "📋";
+  };
+
+  // Detail view
+  if (selectedEntry) {
+    const color = categoryColor(selectedEntry.category);
+    return (
+      <div>
+        <button onClick={() => setSelectedEntry(null)} style={{ background: "none", border: "none", color: T.textSub, cursor: "pointer", marginBottom: 16, fontSize: 13 }}>← Back</button>
+        <div style={{ background: `${color}11`, border: `1.5px solid ${color}33`, borderRadius: 16, padding: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 10, color, fontWeight: 700, marginBottom: 6 }}>{categoryIcon(selectedEntry.category)} {selectedEntry.category?.toUpperCase()}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: T.text, lineHeight: 1.4 }}>{selectedEntry.question}</div>
+        </div>
+        <Card>
+          <div style={{ fontSize: 13, color: T.text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
+            {selectedEntry.content?.split('. ').map((sentence, i) => {
+              if (!sentence.trim()) return null;
+              // Bold KEY: patterns
+              if (sentence.includes(':') && sentence.split(':')[0].length < 40) {
+                const [label, ...rest] = sentence.split(':');
+                return (
+                  <div key={i} style={{ marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, color }}>{label}:</span>
+                    <span>{rest.join(':')}{rest.length > 0 ? '.' : ''}</span>
+                  </div>
+                );
+              }
+              return <div key={i} style={{ marginBottom: 6 }}>• {sentence.trim()}{sentence.trim().endsWith('.') ? '' : '.'}</div>;
+            })}
+          </div>
+        </Card>
+        <button
+          onClick={() => navigator.clipboard?.writeText(selectedEntry.content || "")}
+          style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${color}, ${color}cc)`, color: "#fff", fontWeight: 700, fontSize: 14, marginTop: 4 }}
+        >
+          📋 Copy Script
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: T.textSub, cursor: "pointer", marginBottom: 16, fontSize: 13 }}>← Back</button>
+      <div style={{ fontSize: 20, fontWeight: 900, color: T.text, marginBottom: 4 }}>🛡️ Objection Handler</div>
+      <div style={{ fontSize: 12, color: T.textSub, marginBottom: 16 }}>Scripts, responses & product knowledge</div>
+
+      {/* Search */}
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search objections, topics..."
+        style={{ width: "100%", padding: "11px 14px", borderRadius: 12, background: T.bg2, border: `1.5px solid ${T.border}`, color: T.text, fontSize: 13, outline: "none", marginBottom: 12, boxSizing: "border-box" }}
+      />
+
+      {/* Category filters */}
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", marginBottom: 16, paddingBottom: 4 }}>
+        {categories.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            style={{
+              flexShrink: 0, padding: "6px 14px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700,
+              background: selectedCategory === cat ? (cat === "All" ? T.orange : categoryColor(cat)) : T.bg2,
+              color: selectedCategory === cat ? "#fff" : T.textSub,
+            }}
+          >
+            {cat === "All" ? "All" : `${categoryIcon(cat)} ${cat}`}
+          </button>
+        ))}
+      </div>
+
+      {/* Entries */}
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "40px 0", color: T.textLight }}>Loading...</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "40px 0", color: T.textLight }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+          <div>No results found</div>
+        </div>
+      ) : (
+        filtered.map((entry, i) => {
+          const color = categoryColor(entry.category);
+          return (
+            <div key={i} onClick={() => setSelectedEntry(entry)} style={{ cursor: "pointer", marginBottom: 10 }}>
+              <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderLeft: `4px solid ${color}`, borderRadius: "0 12px 12px 0", padding: "12px 14px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 20 }}>{categoryIcon(entry.category)}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color, fontWeight: 700, marginBottom: 3 }}>{entry.category?.toUpperCase()}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text, lineHeight: 1.4 }}>{entry.question}</div>
+                </div>
+                <span style={{ fontSize: 18, color: T.textLight }}>›</span>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState(S.LOGIN);
@@ -890,6 +1040,7 @@ export default function App() {
         )}
         {screen === S.HISTORY && <HistoryScreen onBack={() => setScreen(S.HOME)} sessions={sessions} onViewSession={handleViewSession} />}
         {screen === S.PROFILE && rep && <ProfileScreen rep={rep} onBack={() => setScreen(S.HOME)} onLogout={handleLogout} sessions={sessions} />}
+        {screen === S.OBJECTIONS && <ObjectionHandlerScreen onBack={() => setScreen(S.HOME)} />}
       </div>
 
       {rep && screen !== S.LOGIN && (
