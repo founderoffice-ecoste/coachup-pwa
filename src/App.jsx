@@ -173,7 +173,8 @@ function FourPhaseReport({ fourPhase }) {
     },
   ];
 
-  const overallScore = Math.round((fourPhase.four_phase_overall || 0) * 10);
+  const raw = fourPhase.four_phase_overall || 0;
+  const overallScore = raw > 10 ? Math.round(raw) : Math.round(raw * 10);
 
   return (
     <Card style={{ marginBottom: 12 }}>
@@ -202,7 +203,8 @@ function FourPhaseReport({ fourPhase }) {
         if (!d) return null;
         const color = phaseColor(d.label);
         const isOpen = expanded === phase.key;
-        const phaseScore = Math.round((d.score || 0) * 10);
+        const rawScore = d.score || 0;
+        const phaseScore = rawScore > 10 ? Math.round(rawScore) : Math.round(rawScore * 10);
 
         return (
           <div key={phase.key} style={{ marginBottom: 8 }}>
