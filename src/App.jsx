@@ -603,7 +603,7 @@ function RecordScreen({ type, rep, onBack, onResult }) {
 }
 
 // ─── RESULT ───────────────────────────────────────────────────────────────────
-function ResultScreen({ result, onBack, onHome }) {
+function ResultScreen({ result, onBack, onHome, isHistoryView = false }) {
   const [copied, setCopied] = useState(false);
   const score = result.overall_score || 0;
   const color = gradeColor(score);
@@ -618,7 +618,7 @@ function ResultScreen({ result, onBack, onHome }) {
 
   return (
     <div>
-      <button onClick={onHome} style={{ background: "none", border: "none", color: T.textSub, cursor: "pointer", marginBottom: 16, fontSize: 13 }}>← Home</button>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: T.textSub, cursor: "pointer", marginBottom: 16, fontSize: 13 }}>{isHistoryView ? "← My Sessions" : "← Home"}</button>
 
       {/* Score Hero */}
       <div style={{ background: `linear-gradient(135deg, ${T.orange}11, ${T.orangeDark}11)`, border: `1.5px solid ${color}33`, borderRadius: 20, padding: "20px 16px", marginBottom: 16, display: "flex", gap: 16, alignItems: "center" }}>
@@ -760,7 +760,7 @@ function ResultScreen({ result, onBack, onHome }) {
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
-function HistoryScreen({ onBack, sessions }) {
+function HistoryScreen({ onBack, sessions, onViewSession }) {
   const scored = sessions.filter(s => s.overall_score > 0);
   const avg = scored.length ? Math.round(scored.reduce((a, b) => a + b.overall_score, 0) / scored.length) : 0;
 
@@ -785,20 +785,25 @@ function HistoryScreen({ onBack, sessions }) {
         </div>
       ) : (
         sessions.map((s, i) => (
-          <Card key={i}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>🏗️ {s.client_name}</div>
-                <div style={{ fontSize: 11, color: T.textLight, marginTop: 3 }}>{new Date(s.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+          <div key={i} onClick={() => onViewSession(s)} style={{ cursor: "pointer" }}>
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>🏗️ {s.client_name}</div>
+                  <div style={{ fontSize: 11, color: T.textLight, marginTop: 3 }}>{new Date(s.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+                  {s.location && <div style={{ fontSize: 11, color: T.textLight, marginTop: 2 }}>📍 {s.location}</div>}
+                </div>
+                <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: gradeColor(s.overall_score || 0) }}>{s.overall_score || "--"}</div>
+                    <div style={{ fontSize: 10, color: T.textLight }}>/ 100</div>
+                  </div>
+                  <span style={{ fontSize: 18, color: T.textLight }}>›</span>
+                </div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 24, fontWeight: 900, color: gradeColor(s.overall_score || 0) }}>{s.overall_score || "--"}</div>
-                <div style={{ fontSize: 10, color: T.textLight }}>/ 100</div>
-              </div>
-            </div>
-            {s.strength && <div style={{ marginTop: 8, padding: "6px 10px", background: "#f0fdf4", borderRadius: 8, fontSize: 11, color: T.success, borderLeft: `2px solid ${T.success}` }}>💪 {s.strength}</div>}
-            {s.audio_drive_link && <a href={s.audio_drive_link} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: T.blue, textDecoration: "none", fontWeight: 700 }}>🎧 Listen →</a>}
-          </Card>
+              {s.strength && <div style={{ marginTop: 8, padding: "6px 10px", background: "#f0fdf4", borderRadius: 8, fontSize: 11, color: T.success, borderLeft: `2px solid ${T.success}` }}>💪 {s.strength}</div>}
+            </Card>
+          </div>
         ))
       )}
     </div>
@@ -847,6 +852,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [chatOpen, setChatOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
 
   const loadSessions = async (rep_id) => { const data = await getSessions(rep_id); setSessions(data); };
   const handleLogin = (repData) => { setRep(repData); loadSessions(repData.id); setScreen(S.HOME); };
@@ -856,6 +862,8 @@ export default function App() {
   };
   const handleResult = (data) => { setResult(data); loadSessions(rep.id); setScreen(S.RESULT); };
   const handleLogout = () => { setRep(null); setSessions([]); setScreen(S.LOGIN); };
+  const handleViewSession = (session) => { setSelectedSession(session); setScreen(S.RESULT); };
+  const handleBackFromSession = () => { setSelectedSession(null); setScreen(S.HISTORY); };
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh", background: T.bg2, color: T.text, fontFamily: "'DM Sans','Segoe UI',sans-serif" }}>
@@ -872,8 +880,15 @@ export default function App() {
         {screen === S.LOGIN && <LoginScreen onLogin={handleLogin} />}
         {screen === S.HOME && rep && <HomeScreen rep={rep} onNav={handleNav} sessions={sessions} />}
         {screen === S.RECORD && rep && <RecordScreen type={sessionType} rep={rep} onBack={() => setScreen(S.HOME)} onResult={handleResult} />}
-        {screen === S.RESULT && result && <ResultScreen result={result} onBack={() => setScreen(S.RECORD)} onHome={() => setScreen(S.HOME)} />}
-        {screen === S.HISTORY && <HistoryScreen onBack={() => setScreen(S.HOME)} sessions={sessions} />}
+        {screen === S.RESULT && (result || selectedSession) && (
+          <ResultScreen
+            result={selectedSession || result}
+            onBack={selectedSession ? handleBackFromSession : () => setScreen(S.RECORD)}
+            onHome={() => { setSelectedSession(null); setScreen(S.HOME); }}
+            isHistoryView={!!selectedSession}
+          />
+        )}
+        {screen === S.HISTORY && <HistoryScreen onBack={() => setScreen(S.HOME)} sessions={sessions} onViewSession={handleViewSession} />}
         {screen === S.PROFILE && rep && <ProfileScreen rep={rep} onBack={() => setScreen(S.HOME)} onLogout={handleLogout} sessions={sessions} />}
       </div>
 
