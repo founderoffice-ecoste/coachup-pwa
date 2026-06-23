@@ -656,13 +656,13 @@ function ResultScreen({ result, onBack, onHome, isHistoryView = false }) {
               <div style={{ fontSize: 11, color: T.orange, fontWeight: 700, marginBottom: 12 }}>📊 DETAILED BREAKDOWN</div>
               {entries.map(([criterion, data]) => {
                 const s = typeof data === 'object' ? (data.score || 0) : (data || 0);
-                const scaledScore = s <= 10 ? s * 10 : s;
+                const scaledScore = Math.min(s, 100);
                 const c = scaledScore >= 80 ? T.success : scaledScore >= 50 ? T.warning : T.error;
                 return (
                   <div key={criterion} style={{ marginBottom: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <span style={{ fontSize: 12, color: T.text, fontWeight: 600 }}>{criterion.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-                      <span style={{ fontSize: 14, fontWeight: 900, color: c }}>{s}/10</span>
+                      <span style={{ fontSize: 14, fontWeight: 900, color: c }}>{Math.round(s)}/100</span>
                     </div>
                     <div style={{ height: 6, background: T.bg2, borderRadius: 3 }}>
                       <div style={{ height: '100%', width: `${scaledScore}%`, background: c, borderRadius: 3 }} />
