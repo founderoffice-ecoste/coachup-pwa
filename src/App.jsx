@@ -448,7 +448,6 @@ function HomeScreen({ rep, onNav, sessions }) {
           { screen: "visit", icon: "🏗️", title: "Site\nPresentation", sub: "Record & score your pitch", accent: T.orange },
           { screen: S.HISTORY, icon: "📊", title: "My Sessions", sub: `${sessions.length} recorded`, accent: T.blue },
           { screen: S.OBJECTIONS, icon: "🛡", title: "Objection Handler", sub: "Scripts & responses", accent: T.purple },
-Handler", sub: "Scripts & responses", accent: T.purple },
           { screen: S.PROFILE, icon: "👤", title: "My Profile", sub: rep.name.split(" ")[0], accent: T.success },
         ].map(c => (
           <button key={c.screen} onClick={() => onNav(c.screen)} style={{ background: T.bg, border: `1.5px solid ${c.accent}33`, borderRadius: 16, padding: "18px 14px", cursor: "pointer", textAlign: "left", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
